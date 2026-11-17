@@ -118,9 +118,13 @@ TEST_MONGO_URI='mongodb://127.0.0.1:27017/' npm test --prefix backend
 
 The integration suite uses a temporary MongoDB database and a local SMTP server that deliberately rejects messages. For the manual flow, join twice, start and complete the first service, and check that the second customer moves up. Verify the confirmation and turn alert in the recipient's inbox.
 
+## AI chats
+
+[Shared Codex and ChatGPT conversations](./ai-chats/README.md) used during the project.
+
 ## Demo and screenshots
 
-**Three-minute screen recording** · Link pending.
+[**Watch the QueueLess demo video**](https://drive.google.com/file/d/1HTITqEAgygA6oMlouB7ZUXm9S1B4c46k/view?usp=sharing)
 
 | Join the queue | First in line | One customer ahead |
 | --- | --- | --- |
