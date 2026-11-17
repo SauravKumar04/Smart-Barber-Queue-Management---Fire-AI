@@ -1,0 +1,4 @@
+customer_id,date,arrival_time,service_start_time,completion_time,service_type,source,status,notes
+1,2026-11-17,15:15,15:20,15:45,Hair + Beard,phone notes,recorded,Waiting 5 min; service 25 min
+2,2026-11-17,15:20,15:50,16:20,Hair only,phone notes; user correction,recorded,Completion time confirmed by user as 16:20; waiting 30 min; service 30 min
+3,2026-11-17,15:35,16:25,16:50,Hair colour,user follow-up; approximate arrival,recorded_approximate_arrival,Arrival around 15:35; estimated waiting approximately 50 min; service 25 min
