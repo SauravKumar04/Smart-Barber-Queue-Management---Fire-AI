@@ -1,0 +1,23 @@
+{
+  "name": "queueless-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "test": "node --test --test-concurrency=1"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "csv-parse": "^6.1.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.0.0",
+    "nodemailer": "^10.5.0",
+    "qrcode": "^1.5.4"
+  }
+}
