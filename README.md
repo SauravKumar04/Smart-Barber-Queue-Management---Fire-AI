@@ -1,55 +1,137 @@
-# QueueLess
+# ✂ QueueLess
 
-QueueLess lets customers scan a barbershop’s QR code, join its queue, and check their place from a private link. The shop owner manages the queue and barber chairs from a separate dashboard.
+**A QR-based walk-in queue for Rupali Salon in Masjid Chowk, Hajipur, Bihar.** Customers can step out while they wait and get an email when their turn is close. The barber manages the line from one dashboard.
+
+[Run locally](#run-locally) · [Real output](#real-output) · [Architecture](#architecture) · [What it gets wrong](#what-it-gets-wrong) · [Demo and screenshots](#demo-and-screenshots)
+
+<p align="center">
+  <img src="./docs/screenshots/owner-dashboard.png" alt="Rupali Salon dashboard showing queue metrics, service lists, and QR download controls" width="900">
+</p>
+
+## The problem
+
+Rupali Salon has limited waiting space. During busy periods, walk-in customers sometimes wait outside or leave when they cannot tell how long the wait will be. QueueLess was built to help **Ravish Kumar Thakur**, a barber at the salon. The field visit took place on **17 November 2026**, from **3:10 to 3:50 p.m.**
+
+| Customer | Shop owner |
+| --- | --- |
+| Scan the shop QR code, pick a service, and join without an account. | Create a shop, configure chairs and services, and download a printable QR code. |
+| Get a token and check the queue position and estimated wait from a private link. | Start the next service, then complete or cancel it. |
+| Receive a confirmation and a turn-approaching email. | See live queue activity and recorded fieldwork timings. |
+
+## Real output
+
+The owner dashboard's **Observed shop timings** card reads [`data.csv`](./data.csv) and reports these results from the three usable visits currently recorded.
+
+| Output | Value |
+| --- | ---: |
+| Usable visits | 3 |
+| Average wait before service | 28.3 minutes |
+| Average service duration | 26.7 minutes |
+
+The observed waits were **5, 30, and approximately 50 minutes**. The corresponding services took **25, 30, and 25 minutes**. One arrival time is approximate. The current CSV contains **3 of the 20 real observations required by the brief**.
+
+[Problem research and tools reviewed](./research.md) · [Conversation and collection notes](./fieldwork.md) · [Timestamped exterior photo](./photos/shop-exterior-2026-11-17-1528.png) · [Timestamped interior photo](./photos/shop-interior-2026-11-17-1531.png)
+
+## What it gets wrong
+
+- **A short visit can give a misleading average.** Three visits from one session cannot describe how long customers usually wait across a full week. An approximate arrival also affects the wait average.
+- **Live waits can run low when a service overruns.** The estimate uses configured service durations, elapsed time, and active chairs. When a service exceeds its configured duration, its estimated remaining time drops to zero even if the customer is still in the chair.
+- **The line depends on the barber updating it.** A missed completion keeps an entry in service and can delay the next alert. An SMTP failure can also prevent an alert from arriving while the customer status page remains available.
 
 ## Run locally
 
-You’ll need Node.js 22.12 or later and MongoDB. A standard local MongoDB server on port 27017 works for development.
+**Requirements** · Node.js 22.12+, npm, and a running MongoDB server.
 
-```sh
+Run from the repository root.
+
+```bash
 npm ci --prefix backend
 npm ci --prefix frontend
-cp backend/.env.example backend/.env
+test -f backend/.env || cp backend/.env.example backend/.env
+openssl rand -hex 32
 ```
 
-Set `MONGO_URI` in `backend/.env` to your connection string. Set `JWT_SECRET` to a random secret generated with `openssl rand -hex 32`. For Atlas, add your IP to the network access list and use a database user with access to the QueueLess database.
+Copy the generated value into `JWT_SECRET` in `backend/.env`. The sample settings point to local MongoDB at `mongodb://127.0.0.1:27017/queueless`. Run one backend process when using standalone MongoDB.
 
-For local MongoDB, use the sample URI and make sure your MongoDB service is running. Run one backend process when using a standalone server.
+<details>
+<summary><strong>Gmail notifications</strong></summary>
 
-Start the backend and frontend in separate terminals from the repository root:
+Enable [Google 2-Step Verification](https://myaccount.google.com/signinoptions/two-step-verification) and create a [Google app password](https://myaccount.google.com/apppasswords). Enter these settings in `backend/.env`.
 
-```sh
+| Setting | Value |
+| --- | --- |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `465` |
+| `SMTP_USER` and `EMAIL_FROM` | Your Gmail address |
+| `SMTP_PASS` | Your Google app password |
+
+Leave the SMTP credentials blank to run the queue locally without email.
+
+</details>
+
+Start the backend and frontend in separate terminals.
+
+```bash
 npm run dev --prefix backend
 npm run dev --prefix frontend
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Register as a shop owner, create a shop, and use **Open join page** to join as a customer. The customer pages require no account. If you change the backend port, copy `frontend/.env.example` to `frontend/.env` and update `API_PROXY_TARGET`.
+Open [localhost:5173](http://localhost:5173), register an owner, create a shop, and click **Open join page**. For a phone demo, set `PUBLIC_APP_URL` to the frontend's reachable address, restart the backend, and download a fresh QR code.
 
-To scan a QR code from another device during development, set `PUBLIC_APP_URL` to the machine’s LAN address and port, such as `http://192.168.1.20:5173`. Restart the backend, then open the owner portal at that same address and download the QR code again. Both devices must be able to reach that address over the local network.
+<details>
+<summary><strong>Production setup</strong></summary>
 
-## Gmail notifications
+Use a MongoDB replica set or sharded cluster. Set `NODE_ENV=production` and set `PUBLIC_APP_URL` to the public HTTPS origin. Configure `TRUST_PROXY_HOPS` if Express is behind a trusted reverse proxy.
 
-Set `SMTP_USER` to your Gmail address and `SMTP_PASS` to an app password from a Google account with 2-Step Verification and app passwords enabled. Google’s setup instructions are available in [Gmail Help](https://support.google.com/mail/answer/185833). Use `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, and set `EMAIL_FROM` to the account address or an approved sender alias.
+```bash
+npm run build --prefix frontend
+npm start --prefix backend
+```
 
-The backend attempts a confirmation email and an approaching-turn email once per entry. A failed or interrupted attempt is left as-is to reduce duplicate mail. The queue keeps working without SMTP credentials or during a mail failure. The customer can always save the private status link from the confirmation page. Links expire seven days after joining.
+Express serves the built frontend and API from one origin. Include `frontend/dist` and `data.csv` in the deployment.
 
-## Queue rules
+</details>
 
-- Tokens reset daily for each shop. The shop day uses `SHOP_TIME_ZONE`, which defaults to `Asia/Kolkata`. Waiting entries from earlier days retain their queue order.
-- Start service for the first waiting customer when a chair is free. Existing entries retain their chosen service and estimated duration after settings change.
-- Customer position counts waiting customers. Estimated wait also accounts for services already in progress and the available chairs. Both portals refresh every 12 seconds.
-- The live dashboard counts services completed today. Fieldwork figures come from valid timing rows in the original `data.csv` and include one approximate arrival.
+## Architecture
 
-## Checks
+```mermaid
+flowchart TD
+    Owner["Shop owner"] --> Web["React, Vite and Tailwind CSS"]
+    Customer["Walk-in customer"] -->|Scans shop QR| Web
+    Web <-->|REST API| API["Node.js and Express"]
+    API <-->|Mongoose| DB[("MongoDB")]
+    CSV["Recorded timings in data.csv"] --> API
+    API -->|Queues email events| DB
+    Worker["Notification worker"] <-->|Claims pending events| DB
+    Worker -->|Nodemailer via Gmail SMTP| Inbox["Customer inbox"]
+```
 
-```sh
+The browser refreshes queue data every 12 seconds. Express validates requests, issues shop-specific daily tokens, and manages queue transitions. Owner sessions use HTTP-only JWT cookies, and customer status links are signed and expire after seven days.
+
+## Testing
+
+```bash
 npm test --prefix backend
 npm run build --prefix frontend
 TEST_MONGO_URI='mongodb://127.0.0.1:27017/' npm test --prefix backend
 ```
 
-The third command requires a test MongoDB server and permission to create and drop a randomly named test database. It uses test-only queue entries and a local server that deliberately rejects SMTP connections. To verify Gmail delivery, use your own address in a test shop and check for the confirmation and approaching-turn emails. Use a test deployment’s final HTTPS URL to verify a downloaded QR code from a phone.
+The integration suite uses a temporary MongoDB database and a local SMTP server that deliberately rejects messages. For the manual flow, join twice, start and complete the first service, and check that the second customer moves up. Verify the confirmation and turn alert in the recipient's inbox.
 
-## Production
+## Demo and screenshots
 
-Use a MongoDB replica set or sharded cluster for production so queue changes can use transactions. Build the frontend with `npm run build --prefix frontend`. Set `NODE_ENV=production`, the public HTTPS `PUBLIC_APP_URL`, and the backend environment variables at the host. Start with `npm start --prefix backend`. Express serves the built site and API from one origin. Keep `frontend/dist` and the original `data.csv` in the deployment. Set `TRUST_PROXY_HOPS` to the number of trusted proxy hops in front of Express if applicable. Keep the JWT secret stable across deploys to preserve sessions and private customer links.
+**Three-minute screen recording** · Link pending.
+
+| Join the queue | First in line | One customer ahead |
+| --- | --- | --- |
+| ![Customer join form](./docs/screenshots/customer-join.png) | ![Token one with a zero-minute estimated wait](./docs/screenshots/customer-first.png) | ![Token two with a 25-minute estimated wait](./docs/screenshots/customer-waiting.png) |
+
+| Shop settings | Recorded fieldwork |
+| --- | --- |
+| ![Chair count and editable service durations](./docs/screenshots/shop-settings.png) | ![Observed waiting and service averages](./docs/screenshots/fieldwork-stats.png) |
+
+| Queue confirmation | Turn-approaching alert |
+| --- | --- |
+| ![Delivered Gmail confirmation](./docs/screenshots/email-confirmation.png) | ![Delivered Gmail turn alert](./docs/screenshots/email-turn-alert.png) |
+
+Private status links, the demo QR code, and personal email details are redacted.
